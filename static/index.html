@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#edf2fb"><meta name="description" content="研修条件と勤務間隔を考慮して作る、当直表の管理アプリ。">
+  <title>当直ノート</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="app-header"><a class="brand" href="#home"><span class="brand-mark">▦</span><span>当直ノート<small>DUTY PLANNER</small></span></a><nav aria-label="メインナビゲーション"><a href="#home" data-nav="home">ホーム</a><a href="#members" data-nav="members">メンバー</a><a href="#calendar" data-nav="calendar">カレンダー</a></nav><span class="cohort">2026年度入職 · 成人系</span></header>
+  <div id="server-notice" role="alert" hidden></div>
+  <main id="app" aria-live="polite"></main>
+  <div id="toast" role="status" hidden></div>
+  <dialog id="dialog"><div id="dialog-content"></div></dialog>
+  <div id="busy" hidden><div class="busy-card"><div class="spinner"></div><h2>勤務のバランスを調整中</h2><p>休日の枠、勤務回数のバランス、勤務間隔を確認しています。</p><small>1か月につき数秒〜約30秒かかります。</small></div></div>
+  <script src="/static/app.js?v=anesthesia-status-5" defer></script>
+</body></html>
