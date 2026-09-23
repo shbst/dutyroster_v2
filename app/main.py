@@ -198,7 +198,7 @@ def get_plan(pid:int):
         for s in slots:
             if s['enabled'] and not s.get('member_id'):
                 candidates=[m for m in members if not m['archived'] and not reasons(m,s,custom)]
-                reason='対象期間・研修条件に合うメンバーがいません' if not candidates else '現在の案では未充足です。月の上限・連日禁止・固定勤務・枠数を確認してください'
+                reason='対象期間・研修条件に合うメンバーがいません' if not candidates else '現在の案では未充足です。月の上限・当直翌日の勤務禁止・固定勤務・枠数を確認してください'
                 unfilled.append({'slot_id':s['id'],'date':s['date'],'kind':s['kind'],'number':s['number'],'reason':reason})
         run=db.execute('SELECT result FROM generation_runs WHERE plan_id=? ORDER BY id DESC LIMIT 1',(pid,)).fetchone()
         history=[dict(r) for r in db.execute('SELECT id,action,created_at FROM history WHERE plan_id=? ORDER BY id DESC LIMIT 10',(pid,))]

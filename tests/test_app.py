@@ -42,12 +42,12 @@ def test_friday_overlap_and_japanese_holidays():
 
 def test_atomic_edit_conflict_lock_undo(client):
     mid=member(client); p=plan(client)
-    s=next(s for s in p['slots'] if s['date']=='2027-04-03' and s['kind']=='day' and s['number']==1)
+    s=next(s for s in p['slots'] if s['date']=='2027-04-03' and s['kind']=='night' and s['number']==1)
     r=edit(client,p,s['id'],member_id=mid); assert r.status_code==200,r.text;p=r.json()
     t=next(s for s in p['slots'] if s['date']=='2027-04-04' and s['kind']=='night' and s['number']==1)
     r=edit(client,p,t['id'],member_id=mid); assert r.status_code==422
     current=client.get(f'/api/plans/{p["id"]}').json();assert current['version']==p['version']
-    same=next(s for s in p['slots'] if s['date']=='2027-04-03' and s['kind']=='night' and s['number']==1)
+    same=next(s for s in p['slots'] if s['date']=='2027-04-03' and s['kind']=='day' and s['number']==1)
     assert edit(client,p,same['id'],member_id=mid).status_code==422
     r=edit(client,p,s['id'],locked=True);assert r.status_code==200;p=r.json()
     assert edit(client,p,s['id'],member_id=None).status_code==422

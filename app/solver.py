@@ -4,7 +4,9 @@ import random
 from math import gcd
 from datetime import date, timedelta
 from ortools.sat.python import cp_model
-from .rules import dates, eligible, reasons, holiday, holiday_duty, category, rotation_on, anesthesia_groups
+from .rules import dates, eligible, reasons, holiday, holiday_duty, category, rotation_on, anesthesia_groups, shifts_conflict
+
+GAP_PENALTIES = {1:400,2:260,3:180,4:110,5:60,6:25,7:5}
 
 def generate(plan, slots, external, members, custom, seed):
     rng=random.Random(seed)
@@ -28,7 +30,7 @@ def generate(plan, slots, external, members, custom, seed):
             for m in members:
                 mid=m['id']
                 v=model.new_bool_var(f'x_{sid}_{mid}'); x[sid,mid]=v
-                blocked=(m['archived'] and not (s.get('locked') and s.get('member_id')==mid)) or reasons(m,s,custom) or any(t.get('member_id')==mid and abs((date.fromisoformat(t['date'])-d).days)<=1 for t in context)
+                blocked=(m['archived'] and not (s.get('locked') and s.get('member_id')==mid)) or reasons(m,s,custom) or any(t.get('member_id')==mid and shifts_conflict(t,s) for t in context)
                 if blocked: model.add(v==0)
                 if s.get('locked') and s.get('member_id'):
                     model.add(v==int(mid==s['member_id']))
@@ -76,15 +78,16 @@ def generate(plan, slots, external, members, custom, seed):
                     gap=(date.fromisoformat(other)-d).days
                     if gap>7: break
                     a=used[mid,ds]; b=used[mid,other]
-                    if gap==1: model.add(a+b<=1)
-                    else:
-                        pair=model.new_bool_var(f'near_{mid}_{ds}_{other}')
-                        model.add(pair>=a+b-1)
-                        soft.append({2:260,3:180,4:110,5:60,6:25,7:5}[gap]*pair)
+                    if gap==1:
+                        nights=sum(x[s['id'],mid] for s in group if s['date']==ds and s['kind']=='night')
+                        model.add(nights+b<=1)
+                    pair=model.new_bool_var(f'near_{mid}_{ds}_{other}')
+                    model.add(pair>=a+b-1)
+                    soft.append(GAP_PENALTIES[gap]*pair)
                 for t in context:
                     if t.get('member_id')==mid:
                         gap=abs((date.fromisoformat(t['date'])-d).days)
-                        if 2<=gap<=7: soft.append({2:260,3:180,4:110,5:60,6:25,7:5}[gap]*used[mid,ds])
+                        if 1<=gap<=7: soft.append(GAP_PENALTIES[gap]*used[mid,ds])
             count=sum(x[s['id'],mid] for s in group)+sum(t.get('member_id')==mid and t['date'].startswith(month) for t in context)
             if month<'2027-04': model.add(count<=4)
             first=date.fromisoformat(month+'-01'); last=first.replace(day=calendar.monthrange(first.year,first.month)[1])

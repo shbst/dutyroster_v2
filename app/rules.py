@@ -9,7 +9,7 @@ JP = holidays.Japan(years=range(2026, 2029), language='ja')
 
 HARD_RULES = [
  '対象は2026年4月入職の成人系メンバー。登録した当直対象期間内に割り当てます。',
- '同じ日の日直・当直の兼任、同じ人の2枠への配置、連続する日付の勤務は禁止します。',
+ '同じ日の日直・当直の兼任、同じ人の2枠への配置は禁止します。当直の翌日は日直・当直とも不可。日直の翌日はどちらも可能です。',
  '1年目（2027年3月まで）は日直・当直を合わせ月4回が上限です。',
  '精神科研修中は月曜当直不可。土曜カウンセリング日は日直・当直とも不可です。',
  '新阿武山病院研修中は平日当直と、各研修日の前日の当直が不可です。',
@@ -99,6 +99,14 @@ def reasons(m, s, custom):
             if training: errors.append('新阿武山病院の研修日前夜')
     return list(dict.fromkeys(errors))
 
+def shifts_conflict(a, b):
+    """Same-day duties conflict; only a night duty blocks the following day."""
+    if a['date'] > b['date']:
+        a, b = b, a
+    gap = (date.fromisoformat(b['date']) - date.fromisoformat(a['date'])).days
+    return gap == 0 or (gap == 1 and a['kind'] == 'night')
+
+
 def validate(slots, members, custom):
     by_id = {m['id']:m for m in members}
     errors = []
@@ -119,8 +127,9 @@ def validate(slots, members, custom):
         for month,count in counts.items():
             if month<'2027-04' and count>4: errors.append(f"{month} {by_id[mid]['name']}：1年目の月4回上限を超えています")
         for a,b in zip(ordered,ordered[1:]):
-            gap=(date.fromisoformat(b['date'])-date.fromisoformat(a['date'])).days
-            if gap<=1: errors.append(f"{by_id[mid]['name']}：{a['date']} と {b['date']} は同日・連日勤務です")
+            if shifts_conflict(a,b):
+                detail='同日に複数の勤務があります' if a['date']==b['date'] else '当直の翌日に勤務があります'
+                errors.append(f"{by_id[mid]['name']}：{a['date']} と {b['date']} は{detail}")
     return list(dict.fromkeys(errors))
 
 def summary(slots,members,custom,month):
