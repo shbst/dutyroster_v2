@@ -166,7 +166,7 @@ def add_holiday(data:HolidayInput):
         db.execute('BEGIN IMMEDIATE')
         if db.execute("SELECT id FROM plans WHERE start<=? AND end>=? AND status='final'",(ds,ds)).fetchone(): raise HTTPException(409,'この日を含む確定表の編集を再開してください')
         db.execute('INSERT OR REPLACE INTO holidays(date,name) VALUES(?,?)',(ds,data.name))
-        db.execute("UPDATE slots SET enabled=1 WHERE date=? AND number=1",(ds,))
+        db.execute("UPDATE slots SET enabled=1 WHERE date=? AND number=1 AND origin='auto'",(ds,))
         check_all(db); db.execute('UPDATE plans SET version=version+1')
     return {'ok':True}
 
@@ -255,7 +255,6 @@ def edit_slot(pid:int,sid:int,data:SlotEdit):
         if s['locked'] or s.get('member_id'): raise HTTPException(422,'担当者を解除してから枠を変更してください')
         d=date.fromisoformat(s['date']); custom=custom_holidays(db)
         if s['kind']=='day' and not holiday(d,custom): raise HTTPException(422,'平日の日直は作成できません')
-        if not data.enabled and s['number']==1 and holiday(d,custom): raise HTTPException(422,'休日の日直・当直は各1枠が必須です')
         if s['number']==2 and data.enabled:
             first=next(t for t in slots if t['date']==s['date'] and t['kind']==s['kind'] and t['number']==1)
             if not first['enabled']: raise HTTPException(422,'先に1枠目を有効にしてください')
