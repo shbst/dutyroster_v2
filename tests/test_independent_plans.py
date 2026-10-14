@@ -53,17 +53,17 @@ def test_generation_weekly_budget_and_balanced_categories(client,monkeypatch):
             d=date.fromisoformat(s['date'])
             if d.weekday()<5 and s['kind']=='night' and s['number']==1:
                 monday=d-timedelta(days=d.weekday());weeks.setdefault(monday,[]).append(s)
-        for slots in weeks.values(): assert sum(s['enabled'] for s in slots)==min(3,len(slots))
+        for slots in weeks.values(): assert sum(s['enabled'] for s in slots)<=min(3,len(slots))
         rows=current['summaries']['2027-04']
         assert any(row['total']<=3 for row in rows)
         for key in ('total','weekday_night','holiday_day','holiday_night'):
             counts=[row[key] for row in rows]
             assert max(counts)-min(counts)<=1,(key,counts)
 
-def test_week_crossing_month_counts_three_days_total(client,monkeypatch):
+def test_week_crossing_month_allows_empty_weekdays(client,monkeypatch):
     monkeypatch.setattr('app.main.secrets.randbelow',lambda n:42)
     for i in range(5):member(client,f'境界{i}')
     p=plan(client,'2027-03-29','2027-04-02')
     r=client.post(f'/api/plans/{p["id"]}/generate',json={'version':p['version']});assert r.status_code==200,r.text
     p=r.json(); assert not p['errors']
-    assert sum(s['enabled'] for s in p['slots'] if s['kind']=='night' and s['number']==1)==3
+    assert sum(s['enabled'] for s in p['slots'] if s['kind']=='night' and s['number']==1)==0

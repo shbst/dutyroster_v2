@@ -55,16 +55,12 @@ def generate(plan, slots, external, members, custom, seed):
             if d.weekday()<5 and s['kind']=='night' and s['number']==1:
                 monday=d-timedelta(days=d.weekday()); weeks.setdefault(monday,[]).append(s)
         for monday,week in weeks.items():
-            # A week crossing a month is settled by its earlier solved days / future minimum allowance.
+            # Reserve room for forced future days when a week crosses a month.
             outside_dates={t['date'] for t in slots if t['date'][:7]<month and t['kind']=='night' and t['number']==1 and t['enabled'] and monday<=date.fromisoformat(t['date'])<=monday+timedelta(days=4)}
             future_slots=[t for t in slots if t['date'][:7]>month and t['kind']=='night' and t['number']==1 and monday<=date.fromisoformat(t['date'])<=monday+timedelta(days=4)]
             def forced(t):
                 return t['enabled'] and (t['origin']=='manual' or t.get('locked') or holiday(date.fromisoformat(t['date']),custom) or any(u['date']==t['date'] and u['kind']=='night' and u['number']==2 and u['enabled'] for u in slots))
-            future_days=[t for t in future_slots if t['enabled'] or t['origin']=='auto']
-            potential=[s for s in week if s['enabled'] or s['origin']=='auto']
-            required=max(0,min(len(potential),3-len(outside_dates)-len(future_days)))
-            model.add(sum(enabled[s['id']] for s in week)>=required)
-            limit=max(required,sum(bool(forced(s)) for s in week),3-len(outside_dates)-sum(bool(forced(s)) for s in future_slots))
+            limit=max(0,sum(bool(forced(s)) for s in week),3-len(outside_dates)-sum(bool(forced(s)) for s in future_slots))
             model.add(sum(enabled[s['id']] for s in week)<=limit)
         for m in members:
             mid=m['id']; bydate={}
@@ -89,7 +85,7 @@ def generate(plan, slots, external, members, custom, seed):
                         gap=abs((date.fromisoformat(t['date'])-d).days)
                         if 1<=gap<=7: soft.append(GAP_PENALTIES[gap]*used[mid,ds])
             count=sum(x[s['id'],mid] for s in group)+sum(t.get('member_id')==mid and t['date'].startswith(month) for t in context)
-            if month<'2027-04': model.add(count<=4)
+            model.add(count<=4)
             first=date.fromisoformat(month+'-01'); last=first.replace(day=calendar.monthrange(first.year,first.month)[1])
             for r in m['rotations']:
                 if r['kind']!='anesthesia' or r['start']>last.isoformat() or r['end']<first.isoformat(): continue
