@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 from .db import initialize, connect, all_members, all_slots
-from .rules import START, END, dates, holiday, holiday_name, validate, summary, reasons, anesthesia_checks, HARD_RULES, SOFT_RULES
+from .rules import START, END, dates, holiday, holiday_name, validate, summary, reasons, anesthesia_checks, HARD_RULES, SOFT_RULES, exact_month_errors
 from .solver import generate
 from .rotations import ROTATION_SITES, normalize_legacy_rotation
 
@@ -212,12 +212,12 @@ def generate_plan(pid:int,data:Version):
     seed=secrets.randbelow(1000000)
     try: result,report=generate(p,slots,external,members,custom,seed)
     except ValueError as e: raise HTTPException(422,str(e))
-    errors=validate(result+external,members,custom)
+    errors=validate(result+external,members,custom)+exact_month_errors(p,result+external,members)
     if errors: raise HTTPException(422,errors)
     with connect() as db:
         db.execute('BEGIN IMMEDIATE'); writable(db,pid,data.version)
         snapshot(db,pid,'自動生成'); persist_slots(db,result); bump(db,pid)
-        db.execute('INSERT INTO generation_runs(plan_id,seed,result,inputs) VALUES(?,?,?,?)',(pid,seed,json.dumps(report),json.dumps({'members':members,'holidays':custom,'external':external,'rule_version':2},ensure_ascii=False)))
+        db.execute('INSERT INTO generation_runs(plan_id,seed,result,inputs) VALUES(?,?,?,?)',(pid,seed,json.dumps(report),json.dumps({'members':members,'holidays':custom,'external':external,'rule_version':3},ensure_ascii=False)))
     return get_plan(pid)
 
 @app.post('/api/plans/{pid}/assignment')
@@ -275,7 +275,9 @@ def undo(pid:int,data:Version):
 @app.post('/api/plans/{pid}/finalize')
 def finalize(pid:int,data:Version):
     with connect() as db:
-        db.execute('BEGIN IMMEDIATE'); writable(db,pid,data.version); check_all(db,pid)
+        db.execute('BEGIN IMMEDIATE'); p=writable(db,pid,data.version); check_all(db,pid)
+        errors=exact_month_errors(p,all_slots(db,pid),all_members(db))
+        if errors: raise HTTPException(422,errors)
         if any(s['enabled'] and not s.get('member_id') for s in all_slots(db,pid)): raise HTTPException(422,'未割り当ての枠があります')
         snapshot(db,pid,'確定'); db.execute("UPDATE plans SET status='final',version=version+1 WHERE id=?",(pid,))
     return get_plan(pid)

@@ -10,7 +10,7 @@ JP = holidays.Japan(years=range(2026, 2029), language='ja')
 HARD_RULES = [
  '対象は2026年4月入職の成人系メンバー。登録した当直対象期間内に割り当てます。',
  '同じ日の日直・当直の兼任、同じ人の2枠への配置は禁止します。当直の翌日は日直・当直とも不可。日直の翌日はどちらも可能です。',
- '1年目・2年目とも日直・当直を合わせ月4回が上限です。',
+ '日直・当直の合計は1年目が月4回まで、2年目（2027年4月以降）が月4回ちょうどです。2年目の必須回数は1か月全体を含む表の対象者に適用します。',
  '精神科研修中は月曜当直不可。土曜カウンセリング日は日直・当直とも不可です。',
  '新阿武山病院研修中は平日当直と、各研修日の前日の当直が不可です。',
  'へき地医療研修期間は日直・当直とも不可です。',
@@ -18,7 +18,7 @@ HARD_RULES = [
 ]
 SOFT_RULES = [
  '土日祝は日直・当直各1枠を初期設定し、手動で無効化できます。有効な休日枠と指定した必要枠を優先して埋めます。',
- '月4回を最低回数にしません。必要な枠を分担し、合計3回以下も許容します。',
+ '1年目と月の一部だけの表は月4回を上限とし、3回以下も許容します。2年目の月全体の表では、4回に満たない下書きを編集でき、確定時に不足を確認します。',
  '同じ人の勤務間隔をできるだけ空け、短い間隔への集中を避けます。月をまたいでも評価します。',
  '公平性は各月の当直対象者と在籍日数で評価します。退職予定の人への前倒し配置はしません。',
  '合計回数に加え、平日当直・休日日直・休日当直それぞれの回数をできるだけ均等にします。',
@@ -43,6 +43,27 @@ def holiday_name(d, custom):
 
 def eligible(m, d):
     return any(p['start'] <= d.isoformat() <= p['end'] for p in m['periods'])
+
+
+def exact_month_members(plan, members, month):
+    """Four duties are mandatory only for complete second-year calendar months."""
+    first = date.fromisoformat(month+'-01')
+    last = first.replace(day=calendar.monthrange(first.year, first.month)[1])
+    if first < YEAR2 or plan['start'] > first.isoformat() or plan['end'] < last.isoformat():
+        return []
+    return [m for m in members if not m.get('archived')
+            and any(eligible(m, d) for d in dates(first, last))]
+
+
+def exact_month_errors(plan, slots, members):
+    errors = []
+    for month in sorted({d.strftime('%Y-%m') for d in dates(plan['start'], plan['end'])}):
+        for m in exact_month_members(plan, members, month):
+            count = sum(s['enabled'] and s.get('member_id') == m['id']
+                        and s['date'].startswith(month) for s in slots)
+            if count != 4:
+                errors.append(f"{month} {m['name']}：2年目は月4回ちょうどが必要です（現在{count}回）")
+    return errors
 
 def rotation_on(m, d):
     return [r for r in m['rotations'] if r['start'] <= d.isoformat() <= r['end']]

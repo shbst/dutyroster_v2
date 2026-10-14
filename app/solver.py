@@ -4,7 +4,7 @@ import random
 from math import gcd
 from datetime import date, timedelta
 from ortools.sat.python import cp_model
-from .rules import dates, eligible, reasons, holiday, holiday_duty, category, rotation_on, anesthesia_groups, shifts_conflict
+from .rules import dates, eligible, reasons, holiday, holiday_duty, category, rotation_on, anesthesia_groups, shifts_conflict, exact_month_members
 
 GAP_PENALTIES = {1:400,2:260,3:180,4:110,5:60,6:25,7:5}
 
@@ -17,8 +17,18 @@ def generate(plan, slots, external, members, custom, seed):
     months=sorted(set(d.strftime('%Y-%m') for d in dates(plan['start'],plan['end'])))
     for month in months:
         group=[s for s in slots if s['date'].startswith(month)]
+        exact_ids={m['id'] for m in exact_month_members(plan,members,month)}
         # Later unlocked assignments will be regenerated; earlier solved months and all locks are fixed context.
         context=external+[s for s in slots if not s['date'].startswith(month) and (s['date'][:7]<month or s.get('locked')) and s.get('member_id')]
+        for m in members:
+            if m['id'] not in exact_ids: continue
+            possible_dates={s['date'] for s in group
+                            if (s['enabled'] or (s['origin']=='auto' and s['kind']=='night' and s['number']==1 and not s.get('locked') and not holiday(date.fromisoformat(s['date']),custom)))
+                            and not reasons(m,s,custom)
+                            and not (s.get('locked') and s.get('member_id') not in (None,m['id']))
+                            and not any(t.get('member_id')==m['id'] and shifts_conflict(t,s) for t in context)}
+            if len(possible_dates)<4:
+                raise ValueError(f"{month} {m['name']}：2年目の月4回ちょうどを満たせません。対象期間・研修条件・有効な枠・固定勤務を考慮すると勤務可能日は{len(possible_dates)}日です。")
         model=cp_model.CpModel(); x={}; used={}; enabled={}; soft=[]; missing=[]; missing_holiday=[]; total_fair=[]; category_fair=[]
         for s in group:
             d=date.fromisoformat(s['date']); sid=s['id']
@@ -86,6 +96,8 @@ def generate(plan, slots, external, members, custom, seed):
                         if 1<=gap<=7: soft.append(GAP_PENALTIES[gap]*used[mid,ds])
             count=sum(x[s['id'],mid] for s in group)+sum(t.get('member_id')==mid and t['date'].startswith(month) for t in context)
             model.add(count<=4)
+            if mid in exact_ids:
+                model.add(count==4)
             first=date.fromisoformat(month+'-01'); last=first.replace(day=calendar.monthrange(first.year,first.month)[1])
             for r in m['rotations']:
                 if r['kind']!='anesthesia' or r['start']>last.isoformat() or r['end']<first.isoformat(): continue
@@ -115,6 +127,8 @@ def generate(plan, slots, external, members, custom, seed):
         for objective in (sum(missing_holiday),sum(missing)):
             model.minimize(objective); status=solver.solve(model)
             if status not in (cp_model.OPTIMAL,cp_model.FEASIBLE):
+                if status==cp_model.INFEASIBLE and exact_ids:
+                    raise ValueError(f'{month}：2年目の対象者全員を月4回ちょうどに配置できません。必要回数は{len(exact_ids)*4}回です。週3日までの自動枠・手動指定枠の数、当直対象期間、研修条件、当直翌日の勤務禁止、固定勤務を確認してください。必要に応じて追加枠を指定してください。')
                 raise ValueError(f'{month}：固定した勤務と条件が矛盾しています。固定を見直してください。' if status==cp_model.INFEASIBLE else f'{month}：時間内に配置案が見つかりませんでした。再実行してください。')
             model.add(objective<=int(solver.value(objective)))
         def capture():

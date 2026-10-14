@@ -33,7 +33,7 @@ function home(){
 function members(){
  $('#app').innerHTML=head('MEMBERS','メンバー','当直対象期間と、研修の予定を登録します。',btn('＋ メンバーを登録','new-member','primary'))+
  (B.members.length?`<div class="member-grid">${B.members.map(m=>`<section class="card member-card ${m.archived?'archived':''}"><div class="member-top"><span class="avatar" style="background:${m.color}">${esc(m.name.slice(0,1))}</span><div><h2>${esc(m.name)}</h2><small class="muted">2026年4月入職 · 成人系${m.archived?' · 非表示':''}</small></div></div><small class="eyebrow">当直対象期間</small>${m.periods.map(p=>`<p>${p.start.replaceAll('-','/')} — ${p.end.replaceAll('-','/')}</p>`).join('')}<div class="actions"><span class="pill">研修 ${m.rotations.length}件</span>${btn('詳細・編集','edit-member','',`data-id="${m.id}"`)}</div></section>`).join('')}</div>`:`<div class="card empty"><div class="empty-icon">♧</div><h2>まずはメンバーの登録から</h2><p>在籍期間に応じた公平な割り当てを行います。</p>${btn('メンバーを登録','new-member','primary')}</div>`)+
- '<p class="footer-note">1年目・2年目とも日直・当直を合わせ月4回が上限です。対象期間が終了した人は、その後の生成対象から自動で外れます。</p>';
+ '<p class="footer-note">日直・当直の合計は1年目が月4回まで、2年目は月全体の表で月4回ちょうどです。対象期間が終了した人は、その後の生成対象から自動で外れます。</p>';
 }
 function periodRow(p={start:'2026-04-01',end:'2028-03-31'}){return `<div class="repeat-row period-row"><div class="form-row"><label>開始日<input type="date" name="start" value="${esc(p.start)}" required min="2026-04-01" max="2028-03-31"></label><label>終了日<input type="date" name="end" value="${esc(p.end)}" required min="2026-04-01" max="2028-03-31"></label></div>${btn('削除','remove-row','remove')}</div>`;}
 function placementOptions(kind,current){

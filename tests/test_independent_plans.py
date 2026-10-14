@@ -41,7 +41,7 @@ def test_delete_only_selected_plan_and_reject_stale_version(client):
 
 def test_generation_weekly_budget_and_balanced_categories(client,monkeypatch):
     monkeypatch.setattr('app.main.secrets.randbelow',lambda n:42)
-    for i in range(10): member(client,f'メンバー{i}')
+    for i in range(6): member(client,f'メンバー{i}')
     # A second independently generated alternative, covering the same month.
     p=plan(client);other=plan(client)
     for current in (p,other):
@@ -55,7 +55,7 @@ def test_generation_weekly_budget_and_balanced_categories(client,monkeypatch):
                 monday=d-timedelta(days=d.weekday());weeks.setdefault(monday,[]).append(s)
         for slots in weeks.values(): assert sum(s['enabled'] for s in slots)<=min(3,len(slots))
         rows=current['summaries']['2027-04']
-        assert any(row['total']<=3 for row in rows)
+        assert all(row['total']==4 for row in rows)
         for key in ('total','weekday_night','holiday_day','holiday_night'):
             counts=[row[key] for row in rows]
             assert max(counts)-min(counts)<=1,(key,counts)
