@@ -60,10 +60,11 @@ def test_generation_weekly_budget_and_balanced_categories(client,monkeypatch):
             counts=[row[key] for row in rows]
             assert max(counts)-min(counts)<=1,(key,counts)
 
-def test_week_crossing_month_allows_empty_weekdays(client,monkeypatch):
+def test_week_crossing_year_keeps_first_year_slots(client,monkeypatch):
     monkeypatch.setattr('app.main.secrets.randbelow',lambda n:42)
     for i in range(5):member(client,f'境界{i}')
     p=plan(client,'2027-03-29','2027-04-02')
     r=client.post(f'/api/plans/{p["id"]}/generate',json={'version':p['version']});assert r.status_code==200,r.text
     p=r.json(); assert not p['errors']
-    assert sum(s['enabled'] for s in p['slots'] if s['kind']=='night' and s['number']==1)==0
+    assert {s['date'] for s in p['slots'] if s['enabled']}=={'2027-03-29','2027-03-31'}
+    assert not p['unfilled']

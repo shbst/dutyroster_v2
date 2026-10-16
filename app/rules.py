@@ -10,7 +10,7 @@ JP = holidays.Japan(years=range(2026, 2029), language='ja')
 HARD_RULES = [
  '対象は2026年4月入職の成人系メンバー。登録した当直対象期間内に割り当てます。',
  '同じ日の日直・当直の兼任、同じ人の2枠への配置は禁止します。当直の翌日は日直・当直とも不可。日直の翌日はどちらも可能です。',
- '日直・当直の合計は1年目が月4回まで、2年目（2027年4月以降）が月4回ちょうどです。2年目の必須回数は1か月全体を含む表の対象者に適用します。',
+ '1年目は月4回の上限を設けず、有効な枠をすべて埋めるよう配置します。2年目（2027年4月以降）は月4回ちょうどです。2年目の必須回数は1か月全体を含む表の対象者に適用します。',
  '精神科研修中は月曜当直不可。土曜カウンセリング日は日直・当直とも不可です。',
  '新阿武山病院研修中は平日当直と、各研修日の前日の当直が不可です。',
  'へき地医療研修期間は日直・当直とも不可です。',
@@ -18,13 +18,13 @@ HARD_RULES = [
 ]
 SOFT_RULES = [
  '土日祝は日直・当直各1枠を初期設定し、手動で無効化できます。有効な休日枠と指定した必要枠を優先して埋めます。',
- '1年目と月の一部だけの表は月4回を上限とし、3回以下も許容します。2年目の月全体の表では、4回に満たない下書きを編集でき、確定時に不足を確認します。',
+ '1年目は有効な平日枠も維持して充足を優先します。2年目の月の一部だけの表は月4回を上限とし、3回以下も許容します。2年目の月全体の表では、4回に満たない下書きを編集でき、確定時に不足を確認します。',
  '同じ人の勤務間隔をできるだけ空け、短い間隔への集中を避けます。月をまたいでも評価します。',
- '公平性は各月の当直対象者と在籍日数で評価します。退職予定の人への前倒し配置はしません。',
- '合計回数に加え、平日当直・休日日直・休日当直それぞれの回数をできるだけ均等にします。',
+ '自動生成の保存前に全期間の合計回数を検証します。対象日数が同じ人の差は1回以内、異なる人は対象日数に比例した回数の切り捨て〜切り上げの範囲を必須とします。条件を満たせない案は保存しません。',
+ '同じ当直表の開始から各月までの合計回数を最優先で均等にし、次に月内の合計、勤務種別ごとの累計（平日当直・休日日直・休日当直）を当直対象日数に応じて均等にします。累計の偏りを月内の勤務種別の偏りより優先して補正します。',
  '麻酔科は平日当直2回と休日系2回を目標とし、金曜当直1回を優先します。金曜は両条件への重複計上可、実勤務は1回です。',
  '外来・地域・新阿武山病院研修中は、休日日直・明け休日当直を優先します。',
- '土日祝を優先し、平日は週3日を埋める必要はなく空きを許容します。月〜金は祝日を含め原則週3日までとし、指定した追加枠・固定勤務は維持します。',
+ '土日祝を優先し、2年目は月4回を守って空き枠を許容します。月〜金は祝日を含め原則週3日までとし、指定した追加枠・固定勤務は維持します。',
  '各当直表は独立した案です。同じ期間に複数作成でき、別の案との連続勤務や回数は合算しません。',
 ]
 
@@ -36,9 +36,11 @@ def dates(start, end):
         d += timedelta(days=1)
 
 def holiday(d, custom):
+    if custom.get(d.isoformat()) is False: return False
     return d.weekday() >= 5 or d in JP or d.isoformat() in custom
 
 def holiday_name(d, custom):
+    if custom.get(d.isoformat()) is False: return '平日扱い'
     return custom.get(d.isoformat(), JP.get(d, ''))
 
 def eligible(m, d):
@@ -133,6 +135,8 @@ def validate(slots, members, custom):
     errors = []
     grouped = {}
     for s in slots:
+        if s['enabled'] and s['kind']=='day' and not holiday(date.fromisoformat(s['date']),custom):
+            errors.append(f"{s['date']}：平日に日直枠は設定できません")
         if s.get('member_id') is None: continue
         m = by_id.get(s['member_id'])
         if not m:
@@ -146,7 +150,7 @@ def validate(slots, members, custom):
         for s in ordered:
             month=s['date'][:7]; counts[month]=counts.get(month,0)+1
         for month,count in counts.items():
-            if count>4: errors.append(f"{month} {by_id[mid]['name']}：月4回上限を超えています")
+            if month >= YEAR2.strftime('%Y-%m') and count>4: errors.append(f"{month} {by_id[mid]['name']}：月4回上限を超えています")
         for a,b in zip(ordered,ordered[1:]):
             if shifts_conflict(a,b):
                 detail='同日に複数の勤務があります' if a['date']==b['date'] else '当直の翌日に勤務があります'
@@ -165,5 +169,18 @@ def summary(slots,members,custom,month):
         all_dates=sorted(date.fromisoformat(s['date']) for s in slots if s.get('member_id')==m['id'])
         gaps=[(b-a).days for a,b in zip(all_dates,all_dates[1:]) if a.strftime('%Y-%m')==month or b.strftime('%Y-%m')==month]
         if gaps: row['min_gap']=min(gaps)
+        result.append(row)
+    return result
+
+
+def plan_summary(slots, members, custom, start, end):
+    """Counts for this entire plan, including members who left during it."""
+    result=[]
+    for m in members:
+        selected=[s for s in slots if s['enabled'] and s.get('member_id')==m['id']]
+        active=sum(eligible(m,d) for d in dates(start,end))
+        if not active and not selected: continue
+        row={'id':m['id'],'name':m['name'],'color':m['color'],'weekday_night':0,'holiday_day':0,'holiday_night':0,'total':len(selected),'active_days':active}
+        for s in selected: row[category(s,custom)]+=1
         result.append(row)
     return result

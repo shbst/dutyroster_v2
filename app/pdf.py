@@ -45,6 +45,28 @@ def make_pdf(data):
             rows.append([Paragraph(escape(r['name']),base),r['weekday_night'],r['holiday_day'],r['holiday_night'],r['total'],f"{r['min_gap']}日" if r['min_gap'] is not None else '-'])
         totals=Table(rows,colWidths=[(width-56)*.3]+[(width-56)*.14]*5,repeatRows=1)
         totals.setStyle(TableStyle([('FONTNAME',(0,0),(-1,-1),'HeiseiKakuGo-W5'),('FONTSIZE',(0,0),(-1,-1),9),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#e6f4f1')),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#f8fafc')]),('ALIGN',(1,0),(-1,-1),'CENTER'),('VALIGN',(0,0),(-1,-1),'MIDDLE'),('TOPPADDING',(0,0),(-1,-1),3),('BOTTOMPADDING',(0,0),(-1,-1),3)])); story.append(totals)
+    story.append(PageBreak())
+    story.append(Paragraph('当直表全期間の集計',title))
+    story.append(Paragraph(f"{escape(data['name'])}　｜　{'確定' if data['status']=='final' else '下書き'}　｜　対象期間 {data['start']} - {data['end']}",small))
+    story.append(Spacer(1,16))
+    keys=('weekday_night','holiday_day','holiday_night','total')
+    summary_rows=data['plan_summary']
+    rows=[['メンバー','平日当直','休日日直','休日当直','合計']]
+    for r in summary_rows:
+        rows.append([Paragraph(escape(r['name']),base),*[r[k] for k in keys]])
+    rows.append(['全員合計',*[sum(r[k] for r in summary_rows) for k in keys]])
+    totals=Table(rows,colWidths=[(width-56)*.36]+[(width-56)*.16]*4,repeatRows=1)
+    totals.setStyle(TableStyle([
+        ('FONTNAME',(0,0),(-1,-1),'HeiseiKakuGo-W5'),('FONTSIZE',(0,0),(-1,-1),10),
+        ('BACKGROUND',(0,0),(-1,0),colors.HexColor('#e6f4f1')),
+        ('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#f8fafc')]),
+        ('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#eaf0fb')),
+        ('ALIGN',(1,0),(-1,-1),'CENTER'),('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+        ('TOPPADDING',(0,0),(-1,-1),8),('BOTTOMPADDING',(0,0),(-1,-1),8),
+    ]))
+    story.append(totals)
+    story.append(Spacer(1,12))
+    story.append(Paragraph('この当直表の全ての月における、割り当て済みの有効な枠を集計しています。未割当の枠は回数に含みません。',small))
     def footer(c,doc):
         c.setFont('HeiseiKakuGo-W5',8); c.setFillColor(colors.HexColor('#738095')); c.drawString(28,15,'当直ノート'); c.drawRightString(width-28,15,str(doc.page))
     doc.build(story,onFirstPage=footer,onLaterPages=footer)

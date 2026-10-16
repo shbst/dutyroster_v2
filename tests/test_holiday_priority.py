@@ -3,7 +3,7 @@ from test_app import client, member, plan, edit
 
 
 @pytest.mark.parametrize('year', [2026, 2027])
-def test_monthly_cap_in_both_years(client, year):
+def test_monthly_cap_only_second_year(client, year):
     mid = member(client)
     p = plan(client, f'{year}-04-01', f'{year}-04-30')
     for index, day in enumerate((2, 6, 10, 14, 18)):
@@ -15,7 +15,7 @@ def test_monthly_cap_in_both_years(client, year):
             assert r.status_code == 200, r.text
             p = r.json()
         r = edit(client, p, s['id'], member_id=mid)
-        if index < 4:
+        if index < 4 or year == 2026:
             assert r.status_code == 200, r.text
             p = r.json()
         else:

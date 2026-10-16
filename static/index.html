@@ -13,6 +13,6 @@
   <main id="app" aria-live="polite"></main>
   <div id="toast" role="status" hidden></div>
   <dialog id="dialog"><div id="dialog-content"></div></dialog>
-  <div id="busy" hidden><div class="busy-card"><div class="spinner"></div><h2>勤務のバランスを調整中</h2><p>休日の枠、勤務回数のバランス、勤務間隔を確認しています。</p><small>1か月につき数秒〜約30秒かかります。</small></div></div>
-  <script src="/static/app.js?v=anesthesia-status-5" defer></script>
+  <div id="busy" hidden><div class="busy-card" role="status" aria-live="polite"><div class="spinner"></div><h2>勤務のバランスを調整中</h2><p id="busy-stage">生成を開始しています</p><p id="busy-month"></p><progress id="busy-progress" value="0" max="1" aria-label="月ごとの配置の完了数"></progress><p id="busy-candidates"></p><small id="busy-elapsed">経過 0秒</small><ol id="busy-log" aria-label="処理の進捗履歴"></ol><small>月の配置が終わった後、全期間の公平性検証と保存を行います。</small></div></div>
+  <script src="/static/app.js?v=generation-progress-6" defer></script>
 </body></html>

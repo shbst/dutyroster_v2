@@ -28,12 +28,15 @@ function home(){
  `<div class="welcome-grid"><section class="card start-card"><div><div class="step-line"><b>01 メンバー登録</b><span>—</span><b>02 自動生成</b><span>—</span><b>03 調整・確定</b></div><h2>次の当直表をつくる</h2><p>研修の予定と勤務の間隔を考慮して、<br>一人ひとりにバランスのよい割り当てを。</p></div><div class="actions">${btn('＋ 当直表を作成','new-plan','primary')}<a class="text-button" href="#members">メンバーを管理 ↗</a></div></section><section class="card stats-card"><div class="stat-row"><span class="muted">登録メンバー</span><strong>${active}<small>名</small></strong></div><div class="stat-row"><span class="muted">保存した当直表</span><strong>${B.plans.length}<small>件</small></strong></div><div class="stat-row"><span class="muted">対象コホート</span><strong>2026<small>年4月入職</small></strong></div></section></div>`+
  `<div class="section-title"><h2>保存した当直表</h2><a class="muted" href="#calendar">カレンダーへ ↗</a></div>${planRows()}`+
  `<div class="section-title"><h2>割り当てのルール</h2><span class="pill">自動生成・手動編集に適用</span></div><div class="rules-grid">${[['必須条件','必ず守るルール',B.hard_rules,'✓',''],['優先条件','可能な範囲で調整するルール',B.soft_rules,'≈','soft']].map(([t,sub,rs,icon,cl])=>`<section class="card card-pad"><div class="rule-title"><span class="rule-icon ${cl}">${icon}</span><div><h2>${t}</h2><small class="muted">${sub}</small></div></div><ol class="rule-list">${rs.map((r,i)=>`<li><span>${String(i+1).padStart(2,'0')}</span><div>${esc(r)}</div></li>`).join('')}</ol></section>`).join('')}</div>`+
- `<div class="note">名称はすべて「当直」で統一。希望日・外科副直・振休申請は対象外です。通常業務を含む休日確保や、麻酔科への事前確認はこのアプリでは判定しません。</div><div class="section-title"><h2>病院独自の休日</h2>${btn('＋ 休日を登録','holiday')}</div><p class="muted">土日・日本の祝日は自動で反映します。年末年始などは追加登録できます。</p><div class="actions">${Object.entries(B.holidays).map(([d,n])=>`<span class="pill">${d} ${esc(n)}</span>`).join('')||'<small class="muted">追加の休日はありません</small>'}</div>`;
+ `<div class="note">名称はすべて「当直」で統一。希望日・外科副直・振休申請は対象外です。通常業務を含む休日確保や、麻酔科への事前確認はこのアプリでは判定しません。</div><div class="section-title"><h2>病院独自の休日</h2>${btn('＋ 休日を登録','holiday')}</div><p class="muted">土日・日本の祝日は自動で反映します。年末年始などは追加登録できます。</p><div class="actions">${Object.entries(B.holidays).filter(([,n])=>n!==false).map(([d,n])=>`<span class="pill">${d} ${esc(n)}</span>`).join('')||'<small class="muted">追加の休日はありません</small>'}</div>`+renderWorkingDays(B.holidays);
+}
+function renderWorkingDays(holidays={}){
+ return `<div class="section-title"><h2>休日を平日扱いにする</h2>${btn('＋ 平日扱いを登録','working-day')}</div><p class="muted">土日・祝日・追加した休日を、指定した日だけ平日として扱います。全ての当直表に適用され、日直枠は無効になります。当直枠は維持し、回数は平日当直に集計します。</p><div class="actions">${Object.entries(holidays).filter(([,v])=>v===false).sort().map(([d])=>`<span class="pill">${esc(d)} 平日扱い ${btn('解除','reset-working-day','text-button',`data-date="${esc(d)}" aria-label="${esc(d)}の平日扱いを解除"`)}</span>`).join('')||'<small class="muted">平日扱いの指定はありません</small>'}</div>`;
 }
 function members(){
  $('#app').innerHTML=head('MEMBERS','メンバー','当直対象期間と、研修の予定を登録します。',btn('＋ メンバーを登録','new-member','primary'))+
  (B.members.length?`<div class="member-grid">${B.members.map(m=>`<section class="card member-card ${m.archived?'archived':''}"><div class="member-top"><span class="avatar" style="background:${m.color}">${esc(m.name.slice(0,1))}</span><div><h2>${esc(m.name)}</h2><small class="muted">2026年4月入職 · 成人系${m.archived?' · 非表示':''}</small></div></div><small class="eyebrow">当直対象期間</small>${m.periods.map(p=>`<p>${p.start.replaceAll('-','/')} — ${p.end.replaceAll('-','/')}</p>`).join('')}<div class="actions"><span class="pill">研修 ${m.rotations.length}件</span>${btn('詳細・編集','edit-member','',`data-id="${m.id}"`)}</div></section>`).join('')}</div>`:`<div class="card empty"><div class="empty-icon">♧</div><h2>まずはメンバーの登録から</h2><p>在籍期間に応じた公平な割り当てを行います。</p>${btn('メンバーを登録','new-member','primary')}</div>`)+
- '<p class="footer-note">日直・当直の合計は1年目が月4回まで、2年目は月全体の表で月4回ちょうどです。対象期間が終了した人は、その後の生成対象から自動で外れます。</p>';
+ '<p class="footer-note">1年目は月4回の上限なしで有効枠を埋めます。2年目は月全体の表で月4回ちょうどとし、空き枠を許容します。対象期間が終了した人は、その後の生成対象から自動で外れます。</p>';
 }
 function periodRow(p={start:'2026-04-01',end:'2028-03-31'}){return `<div class="repeat-row period-row"><div class="form-row"><label>開始日<input type="date" name="start" value="${esc(p.start)}" required min="2026-04-01" max="2028-03-31"></label><label>終了日<input type="date" name="end" value="${esc(p.end)}" required min="2026-04-01" max="2028-03-31"></label></div>${btn('削除','remove-row','remove')}</div>`;}
 function placementOptions(kind,current){
@@ -102,6 +105,7 @@ function renderAnesthesiaStatus(rows){
 function renderSummary(){
  if(!P)return;const month=P.months[monthIndex],rs=P.summaries[month]||[],slots=P.slots.filter(s=>s.enabled&&s.date.startsWith(month)),filled=slots.filter(s=>s.member_id).length;
  $('#summary').innerHTML=`<section class="card summary-card"><div class="summary-head"><div><h2>メンバー別集計</h2><small class="muted">${fmtMonth(month)} · 変更をリアルタイムに反映</small></div><span class="pill ${filled===slots.length?'green':''}">${filled} / ${slots.length} 枠を配置</span></div><div class="table-scroll"><table><thead><tr><th>メンバー</th><th>平日当直</th><th>休日日直</th><th>休日当直</th><th>合計</th><th>最短間隔</th></tr></thead><tbody>${rs.map(r=>`<tr><td><span class="table-name"><i class="color-dot" style="background:${r.color}"></i>${esc(r.name)}</span></td><td>${r.weekday_night}</td><td>${r.holiday_day}</td><td>${r.holiday_night}</td><td><strong class="total-badge">${r.total}</strong></td><td class="${r.min_gap&&r.min_gap<5?'gap-short':''}">${r.min_gap===null?'—':`${r.min_gap}日`}</td></tr>`).join('')||'<tr><td colspan="6">この月の当直対象メンバーがいません。</td></tr>'}</tbody></table></div></section>`;
+ $('#summary').insertAdjacentHTML('beforeend',`<section class="card summary-card"><div class="summary-head"><div><h2>当直表全期間の集計</h2><small class="muted">${esc(P.start)} 〜 ${esc(P.end)} · 月をまたいだ累計</small></div></div><div class="table-scroll"><table><thead><tr><th>メンバー</th><th>平日当直</th><th>休日日直</th><th>休日当直</th><th>合計</th></tr></thead><tbody>${(P.plan_summary||[]).map(r=>`<tr><td>${esc(r.name)}</td><td>${r.weekday_night}</td><td>${r.holiday_day}</td><td>${r.holiday_night}</td><td><strong class="total-badge">${r.total}</strong></td></tr>`).join('')||'<tr><td colspan="5">当直対象メンバーがいません。</td></tr>'}</tbody></table></div></section>`);
  const anesthesia=P.anesthesia_checks?.[month];
  $('#summary').insertAdjacentHTML('beforeend',renderAnesthesiaStatus(anesthesia));
  const unfilled=P.unfilled.filter(s=>s.date.startsWith(month));
@@ -121,7 +125,50 @@ function slotModal(id){
  const person=P.members.find(m=>m.id===s.member_id),month=s.date.slice(0,7),rs=P.summaries[month]||[];
  const title=`${s.date.slice(5).replace('-','/')} ${s.kind==='day'?'日直':'当直'} · ${s.number}枠目`;
  if(P.status==='final'){modal(title,`<p>${esc(person?.name||'未割り当て')}</p><div class="note">変更するには「編集を再開」を押してください。</div>`);return;}
- modal(title,`<p class="muted">${person?`現在の担当：${esc(person.name)}`:'担当者を選択してください。'}${s.locked?'（固定中）':''}</p>${person?`<div class="actions" style="margin-bottom:20px">${btn(s.locked?'固定を解除':'この割り当てを固定','lock','',`data-id="${id}"`)}${!s.locked?btn('移動・交換','select-source','',`data-id="${id}"`)+btn('割り当てを解除','unassign','danger',`data-id="${id}"`):''}</div>`:''}${!s.locked?`<div class="choice-list">${P.members.filter(m=>!m.archived&&m.periods.some(p=>p.start<=s.date&&s.date<=p.end)).map(m=>{const r=rs.find(r=>r.id===m.id);return `<button class="choice" data-action="assign" data-id="${id}" data-member="${m.id}"><span class="person"><i class="color-dot" style="background:${m.color}"></i>${esc(m.name)}</span><small>今月 ${r?.total||0}回${m.id===s.member_id?' ✓':''}</small></button>`;}).join('')||'<p class="muted">当直対象期間に該当するメンバーがいません。</p>'}</div><p class="footer-note">選択時に研修条件・連日勤務・月の上限をチェックします。</p>`:''}${!person?`<div class="dialog-actions">${btn('この枠を無効にする','disable-slot','danger',`data-id="${id}"`)}</div>`:''}`);
+ modal(title,`<p class="muted">${person?`現在の担当：${esc(person.name)}`:'担当者を選択してください。'}${s.locked?'（固定中）':''}</p>${person?`<div class="actions" style="margin-bottom:20px">${btn(s.locked?'固定を解除':'この割り当てを固定','lock','',`data-id="${id}"`)}${!s.locked?btn('移動・交換','select-source','',`data-id="${id}"`)+btn('割り当てを解除','unassign','danger',`data-id="${id}"`):''}</div>`:''}${!s.locked?`${!person?'<label><input type="checkbox" id="assign-locked" checked> この枠に固定する（自動生成でも担当者を維持）</label>':''}<div class="choice-list">${P.members.filter(m=>!m.archived&&m.periods.some(p=>p.start<=s.date&&s.date<=p.end)).map(m=>{const r=rs.find(r=>r.id===m.id);return `<button class="choice" data-action="assign" data-id="${id}" data-member="${m.id}"><span class="person"><i class="color-dot" style="background:${m.color}"></i>${esc(m.name)}</span><small>今月 ${r?.total||0}回${m.id===s.member_id?' ✓':''}</small></button>`;}).join('')||'<p class="muted">当直対象期間に該当するメンバーがいません。</p>'}</div><p class="footer-note">選択時に研修条件・連日勤務・月の上限をチェックします。</p>`:''}${!person?`<div class="dialog-actions">${btn('この枠を無効にする','disable-slot','danger',`data-id="${id}"`)}</div>`:''}`);
+}
+async function readGenerationStream(response,onEvent){
+ if(!response.ok){const error=await response.json().catch(()=>({}));throw Error(error.detail||'生成を開始できませんでした。');}
+ if(!response.body)throw Error('このブラウザーでは進捗表示を利用できません。');
+ const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',result=null;
+ function receive(line){
+  if(!line.trim())return;
+  const event=JSON.parse(line);
+  if(event.type==='error')throw Error(Array.isArray(event.detail)?event.detail.join('\n'):event.detail);
+  if(event.type==='result')result=event.plan;
+  if(event.type==='progress')onEvent(event);
+ }
+ try{
+  while(true){const {value,done}=await reader.read();pending+=done?decoder.decode():decoder.decode(value,{stream:true});let index;
+   while((index=pending.indexOf('\n'))>=0){receive(pending.slice(0,index));pending=pending.slice(index+1);}
+   if(done){receive(pending);break;}
+  }
+  if(!result)throw Error('生成処理との接続が途切れました。画面を再読み込みして保存状態を確認してください。');
+  return result;
+ }finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
+}
+function showGenerationProgress(event){
+ if(event.stage)$('#busy-stage').textContent=(event.month?`${fmtMonth(event.month)} · `:'')+event.stage;
+ if(event.completed_months!==undefined){
+  const total=event.total_months??P.months.length;
+  $('#busy-month').textContent=`月ごとの配置：${event.completed_months} / ${total}か月完了`;
+  $('#busy-progress').max=total;$('#busy-progress').value=event.completed_months;
+ }
+ $('#busy-candidates').textContent=event.candidates===undefined?'':`この段階で候補案を${event.candidates}件確認`;
+ if(event.stage){
+  const log=$('#busy-log'),label=(event.month?`${fmtMonth(event.month)} · `:'')+event.stage;
+  if(log.lastElementChild?.textContent!==label){const li=document.createElement('li');li.textContent=label;log.appendChild(li);while(log.children.length>8)log.firstElementChild.remove();log.scrollTop=log.scrollHeight;}
+ }
+}
+async function generateWithProgress(){
+ close();$('#busy').hidden=false;$('#busy-log').replaceChildren();
+ showGenerationProgress({stage:'生成を開始しています',completed_months:0,total_months:P.months.length});
+ const started=Date.now();$('#busy-elapsed').textContent='経過 0秒';
+ const timer=setInterval(()=>{$('#busy-elapsed').textContent=`経過 ${Math.floor((Date.now()-started)/1000)}秒`;},1000);
+ try{
+  const response=await fetch(`/api/plans/${P.id}/generate-stream`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:P.version})});
+  P=await readGenerationStream(response,showGenerationProgress);renderCalendar();toast('当直表を生成しました。集計と未割り当てをご確認ください。');
+ }finally{clearInterval(timer);$('#busy').hidden=true;}
 }
 async function loadPlan(id){P=await api('/plans/'+id);monthIndex=Math.min(monthIndex,P.months.length-1);selected=null;localStorage.setItem('duty-plan',String(id));renderCalendar();}
 async function perform(path,body={}){P=await api(`/plans/${P.id}${path}`,'POST',{version:P.version,...body});close();renderCalendar();}
@@ -148,17 +195,19 @@ async function action(a,el){
  case 'add-rotation':$('#rotations').insertAdjacentHTML('beforeend',rotationRow());break;
  case 'add-event':$('#events').insertAdjacentHTML('beforeend',eventRow());break;
  case 'remove-row':el.closest('.repeat-row').remove();break;
+ case 'working-day':modal('休日を平日扱いにする',`<form id="working-day-form"><label>日付<input name="date" type="date" min="2026-04-01" max="2028-03-31" required></label><p class="muted">日直の割り当てがある場合は先に解除してください。確定表がある場合は編集を再開してください。登録後も、この画面から解除できます。</p><div class="dialog-actions">${btn('キャンセル','close')}<button type="submit" class="primary">平日扱いにする</button></div></form>`);break;
+ case 'reset-working-day':await api('/working-days','POST',{date:el.dataset.date,enabled:false});await reload();toast('平日扱いを解除しました');break;
  case 'holiday':modal('病院独自の休日を追加',`<form id="holiday-form"><label>日付<input name="date" type="date" min="2026-04-01" max="2028-03-31" required></label><label>名称<input name="name" placeholder="例：年末年始休業" required maxlength="40"></label><div class="dialog-actions"><button type="submit" class="primary">登録する</button></div></form>`);break;
  case 'prev':case 'next':{const i=Math.max(0,Math.min(P.months.length-1,monthIndex+(a==='prev'?-1:1)));$('#month-track').scrollTo({left:$('#month-track').clientWidth*i,behavior:'smooth'});break;}
  case 'slot':await slotModal(id);break;
  case 'enable-slot':case 'disable-slot':P=await api(`/plans/${P.id}/slots/${id}`,'PUT',{version:P.version,enabled:a==='enable-slot'});close();renderCalendar();break;
- case 'assign':await perform('/assignment',{slot_id:id,member_id:Number(el.dataset.member)});toast('担当者を保存しました');break;
+ case 'assign':await perform('/assignment',{slot_id:id,member_id:Number(el.dataset.member),...($('#assign-locked')?{locked:$('#assign-locked').checked}:{})});toast('担当者を保存しました');break;
  case 'unassign':await perform('/assignment',{slot_id:id,member_id:null});break;
  case 'lock':await perform('/assignment',{slot_id:id,locked:!P.slots.find(s=>s.id===id).locked});break;
  case 'select-source':selected=id;close();renderCalendar();break;
  case 'cancel-select':selected=null;renderCalendar();break;
  case 'generate':modal('自動生成しますか？',`<p>この表の対象期間全体を生成します。固定した担当者は維持し、それ以外の割り当ては作り直します。</p><div class="note">まず必要な2枠目を追加してください。生成後は「取り消し」で直前の状態に戻せます。</div><div class="dialog-actions">${btn('キャンセル','close')}${btn('自動生成を開始','run-generate','primary')}</div>`);break;
- case 'run-generate':close();$('#busy').hidden=false;try{await perform('/generate');toast('当直表を生成しました。集計と未割り当てをご確認ください。');}finally{$('#busy').hidden=true;}break;
+ case 'run-generate':await generateWithProgress();break;
  case 'undo':await perform('/undo');toast('直前の変更を取り消しました');break;
  case 'finalize':modal('当直表を確定',`<p>未割り当てと必須条件を確認し、現在の当直表を確定します。</p><p class="muted">勤務間隔や診療科への確認も済ませてから確定してください。</p><div class="dialog-actions">${btn('戻る','close')}${btn('確定する','confirm-finalize','primary')}</div>`);break;
  case 'confirm-finalize':await perform('/finalize');B=await api('/bootstrap');toast('当直表を確定しました');break;
@@ -183,6 +232,8 @@ document.addEventListener('submit',async e=>{
    await api('/members'+(f.dataset.id?'/'+f.dataset.id:''),f.dataset.id?'PUT':'POST',body);close();await reload();toast('メンバーを保存しました');
   }else if(f.id==='plan-form'){
    const body=Object.fromEntries(new FormData(f));const p=await api('/plans','POST',body);close();B=await api('/bootstrap');monthIndex=0;location.hash='calendar/'+p.id;
+  }else if(f.id==='working-day-form'){
+   await api('/working-days','POST',Object.fromEntries(new FormData(f)));close();await reload();toast('平日扱いを登録しました');
   }else if(f.id==='holiday-form'){
    await api('/holidays','POST',Object.fromEntries(new FormData(f)));close();await reload();toast('休日を登録しました');
   }

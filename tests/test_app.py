@@ -55,16 +55,15 @@ def test_atomic_edit_conflict_lock_undo(client):
     assert not next(t for t in r.json()['slots'] if t['id']==s['id'])['locked']
     assert edit(client,p,s['id'],locked=False).status_code==409
 
-def test_first_year_cap_and_retirement(client):
+def test_first_year_no_cap_and_retirement(client):
     mid=member(client,end='2027-03-31');p=plan(client,'2027-03-01','2027-03-31')
     selected=[s for s in p['slots'] if s['kind']=='night' and s['number']==1 and s['enabled']]
     assigned=[]
     for s in selected:
         if all(abs((date.fromisoformat(s['date'])-date.fromisoformat(t['date'])).days)>1 for t in assigned):
             r=edit(client,p,s['id'],member_id=mid)
-            if len(assigned)<4: assert r.status_code==200;p=r.json();assigned.append(s)
-            else: assert r.status_code==422;break
-    assert len(assigned)==4
+            assert r.status_code==200;p=r.json();assigned.append(s)
+    assert len(assigned)>4
     april=plan(client);s=next(s for s in april['slots'] if s['enabled'])
     assert edit(client,april,s['id'],member_id=mid).status_code==422
 
@@ -101,7 +100,7 @@ def test_generation_two_slots_fairness_final_pdf(client,tmp_path):
 def test_impossible_is_partial(client):
     member(client);p=plan(client,'2026-12-01','2026-12-31')
     r=client.post(f'/api/plans/{p["id"]}/generate',json={'version':p['version']});assert r.status_code==200,r.text
-    p=r.json();assert p['unfilled'];assert not p['errors'];assert p['summaries']['2026-12'][0]['total']<=4
+    p=r.json();assert p['unfilled'];assert not p['errors'];assert p['summaries']['2026-12'][0]['total']>4
     assert client.post(f'/api/plans/{p["id"]}/finalize',json={'version':p['version']}).status_code==422
 
 def test_input_and_origin_validation(client):
